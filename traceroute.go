@@ -19,10 +19,22 @@ const DEFAULT_PACKET_SIZE = 52
 
 // Return the first non-loopback address as a 4 byte IP address. This address
 // is used for sending packets out.
-func socketAddr() (addr [4]byte, err error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return
+func socketAddr(iface string) (addr [4]byte, err error) {
+	var addrs []net.Addr
+	if len(iface) == 0 {
+		addrs, err = net.InterfaceAddrs()
+		if err != nil {
+			return
+		}
+	} else {
+		ifc, err := net.InterfaceByName(iface)
+		if err != nil {
+			return addr, err
+		}
+		addrs, err = ifc.Addrs()
+		if err != nil {
+			return addr, err
+		}
 	}
 
 	for _, a := range addrs {
@@ -61,6 +73,7 @@ type TracerouteOptions struct {
 	timeoutMs  int
 	retries    int
 	packetSize int
+	iface      string
 }
 
 func (options *TracerouteOptions) Port() int {
@@ -72,6 +85,14 @@ func (options *TracerouteOptions) Port() int {
 
 func (options *TracerouteOptions) SetPort(port int) {
 	options.port = port
+}
+
+func (options *TracerouteOptions) Iface() string {
+	return options.iface
+}
+
+func (options *TracerouteOptions) SetIface(iface string) {
+	options.iface = iface
 }
 
 func (options *TracerouteOptions) MaxHops() int {
@@ -180,7 +201,7 @@ func Traceroute(dest string, options *TracerouteOptions, c ...chan TracerouteHop
 	result.Hops = []TracerouteHop{}
 	destAddr, err := destAddr(dest)
 	result.DestinationAddress = destAddr
-	socketAddr, err := socketAddr()
+	socketAddr, err := socketAddr(options.Iface())
 	if err != nil {
 		return
 	}
